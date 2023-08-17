@@ -10,6 +10,7 @@ import json
 ResponsePayload = tp.Dict[str, tp.Any]
 OptionsDict = tp.Dict[str, tp.Any]
 Headers = tp.Dict[str, str]
+Timeout = tp.Union[float, tuple]
 
 # global constants
 API_ENDPOINT: str = "https://api.pinata.cloud/"
@@ -57,6 +58,7 @@ class PinataPy:
             ipfs_destination_path: str = "/",
             save_absolute_paths: bool = True,
             options: tp.Optional[OptionsDict] = None,
+            timeout: Timeout = None,
     ) -> ResponsePayload:
         """
         Pin any file, or directory, to Pinata's IPFS nodes
@@ -75,6 +77,8 @@ class PinataPy:
                     true: /dir1/dir2/dir3/filename => /dir1/dir2/dir3/filename
                     false: /dir1/dir2/dir3/filename => filename
             options: optional parameters (pinataMetadata, pinataOptions)
+            timeout: Optional timeout for pin request.
+                Inherited from requests module. Could throw requests.exceptions.Timeout
 
         Returns:
             JSON response
@@ -128,7 +132,7 @@ class PinataPy:
                 pinataOptions = options["pinataOptions"]
                 payload["pinataOptions"] = pinataOptions if type(pinataOptions) == str else json.dumps(pinataOptions)
 
-        response: requests.Response = requests.post(url=url, files=files, headers=headers, data=payload)
+        response: requests.Response = requests.post(url=url, files=files, headers=headers, data=payload, timeout=timeout)
         return response.json() if response.ok else self._error(response)  # type: ignore
 
     def pin_hash_to_ipfs(self, hash_to_pin: str, options: tp.Optional[OptionsDict] = None) -> ResponsePayload:
@@ -145,30 +149,39 @@ class PinataPy:
         response: requests.Response = requests.post(url=url, json=body, headers=headers)
         return response.json() if response.ok else self._error(response)  # type: ignore
 
-    def pin_to_pinata_using_ipfs_hash(self, ipfs_hash: str, filename: str) -> ResponsePayload:
+    def pin_to_pinata_using_ipfs_hash(self, ipfs_hash: str, filename: str, timeout: Timeout = None,) -> ResponsePayload:
         """ Pin file to Pinata using its IPFS hash
 
         https://docs.pinata.cloud/pinata-api/pinning/pin-by-cid
+
+            timeout: Optional timeout for pin request.
+                Inherited from requests module. Could throw requests.exceptions.Timeout
         """
         payload: OptionsDict = {"pinataMetadata": {"name": filename}, "hashToPin": ipfs_hash}
         url: str = API_ENDPOINT + "/pinning/pinByHash"
-        response: requests.Response = requests.post(url=url, json=payload, headers=self._auth_headers)
+        response: requests.Response = requests.post(url=url, json=payload, headers=self._auth_headers, timeout=timeout)
         return self._error(response) if not response.ok else response.json()  # type: ignore
 
-    def pin_jobs(self, options: tp.Optional[OptionsDict] = None) -> ResponsePayload:
+    def pin_jobs(self, options: tp.Optional[OptionsDict] = None, timeout: Timeout = None,) -> ResponsePayload:
         """ Retrieves a list of all the pins that are currently in the pin queue for your user.
 
         More: https://docs.pinata.cloud/pinata-api/pinning/list-pin-by-cid-jobs
+
+            timeout: Optional timeout for pin request.
+                Inherited from requests module. Could throw requests.exceptions.Timeout
         """
         url: str = API_ENDPOINT + "pinning/pinJobs"
         payload: OptionsDict = options if options else {}
-        response: requests.Response = requests.get(url=url, params=payload, headers=self._auth_headers)
+        response: requests.Response = requests.get(url=url, params=payload, headers=self._auth_headers, timeout=timeout)
         return response.json() if response.ok else self._error(response)  # type: ignore
 
-    def pin_json_to_ipfs(self, json_to_pin: tp.Any, options: tp.Optional[OptionsDict] = None) -> ResponsePayload:
+    def pin_json_to_ipfs(self, json_to_pin: tp.Any, options: tp.Optional[OptionsDict] = None, timeout: Timeout = None,) -> ResponsePayload:
         """ pin provided JSON
         
         More: https://docs.pinata.cloud/pinata-api/pinning/pin-json
+
+            timeout: Optional timeout for pin request.
+                Inherited from requests module. Could throw requests.exceptions.Timeout
         """
         url: str = API_ENDPOINT + "pinning/pinJSONToIPFS"
         headers: Headers = self._auth_headers
@@ -179,36 +192,43 @@ class PinataPy:
                 payload["pinataMetadata"] = options["pinataMetadata"]
             if "pinataOptions" in options:
                 payload["pinataOptions"] = options["pinataOptions"]
-        response: requests.Response = requests.post(url=url, json=payload, headers=headers)
+        response: requests.Response = requests.post(url=url, json=payload, headers=headers, timeout=timeout)
         return response.json() if response.ok else self._error(response)  # type: ignore
 
-    def remove_pin_from_ipfs(self, hash_to_remove: str) -> ResponsePayload:
+    def remove_pin_from_ipfs(self, hash_to_remove: str, timeout: Timeout = None,) -> ResponsePayload:
         """ Removes specified hash pin
 
         More: https://docs.pinata.cloud/pinata-api/pinning/remove-files-unpin
+
+            timeout: Optional timeout for pin request.
+                Inherited from requests module. Could throw requests.exceptions.Timeout
         """
         url: str = API_ENDPOINT + f"pinning/unpin/{hash_to_remove}"
         headers: Headers = self._auth_headers
         headers["Content-Type"] = "application/json"
-        response: requests.Response = requests.delete(url=url, data={}, headers=headers)
+        response: requests.Response = requests.delete(url=url, data={}, headers=headers, timeout=timeout)
         return self._error(response) if not response.ok else {"message": "Removed"}
 
-    def pin_list(self, options: tp.Optional[OptionsDict] = None) -> ResponsePayload:
+    def pin_list(self, options: tp.Optional[OptionsDict] = None, timeout: Timeout = None,) -> ResponsePayload:
         """ Returns list of your IPFS files based on certain filters.
 
         Ex: Filter by only 'pinned' files
             options = ({"status": "pinned"})
         Ex: Filter by 'pinned' files and files that contain a metadata 'name' of 'dogs-nfts'
             options = ({"status": "pinned", "metadata[name]": "dogs-nfts"})
+
+        timeout: Optional timeout for pin request.
+            Inherited from requests module. Could throw requests.exceptions.Timeout
+
         
         More: https://docs.pinata.cloud/pinata-api/data/query-files
         """
         url: str = API_ENDPOINT + "data/pinList"
         payload: OptionsDict = options if options else {}
-        response: requests.Response = requests.get(url=url, params=payload, headers=self._auth_headers)
+        response: requests.Response = requests.get(url=url, params=payload, headers=self._auth_headers, timeout=timeout)
         return response.json() if response.ok else self._error(response)  # type: ignore
 
-    def user_pinned_data_total(self) -> ResponsePayload:
+    def user_pinned_data_total(self, timeout: Timeout = None,) -> ResponsePayload:
         url: str = API_ENDPOINT + "data/userPinnedDataTotal"
-        response: requests.Response = requests.get(url=url, headers=self._auth_headers)
+        response: requests.Response = requests.get(url=url, headers=self._auth_headers, timeout=timeout)
         return response.json() if response.ok else self._error(response)  # type: ignore
